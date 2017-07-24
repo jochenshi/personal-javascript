@@ -1,5 +1,72 @@
 // 判断某对象是否包含指定的键值对
 var _ = {}
+
+// 一个返回函数的回调函数：可以绑定this作用域；可以指定参数的个数以及顺序
+var callbackFun = function (func, context, argCount) {
+    if (context === void 0) {
+        return func
+    }
+    switch (argCount == null ? 3 : argCount) {
+        case 1:
+            return function (value) {
+                return func.call(context, value)
+            }
+        case 2:
+            return function (value, other) {
+                return fun.call(context, value, other)
+            }
+        case 3:
+            return function (value, index, collection) {
+                return func.call(context, value, index, collection)
+            }
+        case 4:
+            return function (accumulator, value, index, collection) {
+                return func.call(context, accumulator, value, index, collection)
+            }
+    }
+    return function () {
+        return func.call(context, arguments)
+    }
+}
+
+// 内部函数，根据不同的参数返回不同的处理方式
+// value为空，则返回一个返回参数自身的回调函数
+// value为函数是，则返回一个绑定了this作用域的函数
+// value为对象时，则返回一个是否匹配属性的函数
+// 否则返回一个读取对象value属性的回调函数
+var callbacks = function (value, context, argCount) {
+    if (value == null) {
+        return _.self
+    }
+    if (_.isFunc(value)) {
+        return callbackFun(value, context, argCount)
+    }
+    if (_.isObject(value)) {
+        return _.matcher(value)
+    }
+    return _.property(value)
+
+}
+
+// 内部函数group
+var group = function (behavior) {
+    return function (obj, iterate, context) {
+        var result = {}
+        iterate = callbacks(iterate, context)
+        // 暂时使用如下的循环方式
+        obj.forEach(function(element, index) {
+            var key = iterate(element, index, obj)
+            behavior(result, element, key)
+        }, this);
+    }
+}
+
+// 返回自身参数的函数
+_.self = function (value) {
+    return value
+}
+
+// 判断对象obj中是否包含给定的所有的键值对
 _.isMatcher = function (obj, newObj) {
     var keys = Object.keys(newObj), length = keys.length
     if (obj == null) return !length
@@ -10,6 +77,7 @@ _.isMatcher = function (obj, newObj) {
             return false
         }
     }
+    return true
 }
 
 // 创建一个编号数组，指定起始范围以及间隔
@@ -64,10 +132,36 @@ _.contains = function (arr, item) {
     return arr.indexOf(item) > -1
 }
 
+// 判断是否是函数
+_.isFunc = function (obj) {
+    return typeof obj === 'function' || false
+}
+
+// 判断是否是对象，在js中函数也是对象，!!obj是为了排除null
+_.isObject = function (obj) {
+    var type = typeof obj
+    return type === 'function' || type === 'object' && !!obj
+}
+
+// 返回一个断言函数（返回值是布尔类型的函数）
+// 这个函数是用来判断一个对象是否包含给定的键值对
+_.matcher = function (attrs) {
+    return function (obj) {
+        return _.isMatcher(obj, attrs)
+    }
+}
+
 // 返回一个将返回值取反的函数
 _.negate = function (predicate) {
     return function () {
         return !predicate.apply(this, arguments)
+    }
+}
+
+// 返回一个能读取obj对象中key对应的属性的函数
+_.property = function (key) {
+    return function (obj) {
+        return obj == null ? void 0 : obj[key]
     }
 }
 
@@ -98,3 +192,53 @@ _.unique = function (array, isSorted, iterate, context) {
     }
     return result
 }
+
+// 取数组的交集
+_.intersection = function (array) {
+    if (array == null) return []
+    var len = arguments.length
+    // 对第一个数组进行遍历，以此为参照进行判断
+    for (var i = 0; i < array.length; i++) {
+        var item = array[i]
+        if (_.contains(array, item)) continue
+        for (var j = 1; j < len; j++) {
+            if (!_.contains(arguments[j], item)) break
+        }
+        if (j === len) {
+            result.push(item)
+        }
+    }
+}
+
+// 获取list的长度
+_.size = function (obj) {
+    if (obj == null) return 0
+    return _.isArray(obj) ? obj.length : Object.keys(obj).length
+}
+
+// 针对对象的操作，返回对象中符合条件的key值
+_.findKey = function (obj, predicate, context) {
+    predicate = callbacks(predicate, context)
+    var keys = Object.keys(obj), key
+    for (var i = 0; i < keys.length; i++) {
+        key = keys[i]
+        if (predicate(obj[key], key, obj)) {
+            return key
+        }
+    }
+}
+
+// 针对对象的操作，对对象中的每个元素进行指定的操作，
+// 然后返回变换后的对象，不改变原有的对象，类似于数组的map
+_.mapObject = function (obj, iterate, context) {
+    iterate = callbacks(iterate, context)
+    var keys = Object.keys(obj), length = keys.length, result = {}, currentKey, computed
+    for (var i = 0; i < length; i++) {
+        currentKey = keys[i]
+        computed = iterate(obj[currentKey], currentKey, obj)
+        result[currentKey] = computed
+    }
+    return result
+}
+
+
