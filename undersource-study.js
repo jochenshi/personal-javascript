@@ -140,7 +140,7 @@ _.isFunc = function (obj) {
 // 判断是否是对象，在js中函数也是对象，!!obj是为了排除null
 _.isObject = function (obj) {
     var type = typeof obj
-    return type === 'function' || type === 'object' && !!obj
+    return (type === 'function' || type === 'object') && !!obj
 }
 
 // 返回一个断言函数（返回值是布尔类型的函数）
